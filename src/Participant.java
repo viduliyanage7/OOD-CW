@@ -13,4 +13,19 @@ public class Participant {
         this.skillLevel = skillLevel;
         this.personalityScore = personalityScore;
     }
+
+    public String getName() { return name; }
+    public String getGame() { return game; }
+    public String getRole() { return role; }
+    public int getSkillLevel() { return skillLevel; }
+    public int getPersonalityScore() { return personalityScore; }
+
+    public String getPersonalityType() { return personalityType; }
+    public void setPersonalityType(String type) { this.personalityType = type; }
+
+    @Override
+    public String toString() {
+        return name + " | " + game + " | " + role + " | Skill: " + skillLevel +
+                " | Personality: " + personalityType;
+    }
 }
