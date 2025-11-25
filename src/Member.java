@@ -1,4 +1,4 @@
-public class Participant {
+public class Member {
     private String name;
     private String game;
     private String role;
@@ -6,7 +6,7 @@ public class Participant {
     private int personalityScore;
     private String personalityType;
 
-    public Participant(String name, String game, String role, int skillLevel, int personalityScore) {
+    public Member(String name, String game, String role, int skillLevel, int personalityScore) {
         this.name = name;
         this.game = game;
         this.role = role;
