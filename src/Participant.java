@@ -1,7 +1,5 @@
-public class Participant {
+public class Participant extends Person {
 
-    private String name;
-    private String email;
     private String preferredGame;
     private int skillLevel;
     private String preferredRole;
@@ -11,8 +9,8 @@ public class Participant {
     public Participant(String name, String email, String preferredGame,
                        int skillLevel, String preferredRole, int personalityScore) {
 
-        this.name = name;
-        this.email = email;
+        super(name, email); // Inheritance: calling parent constructor
+
         this.preferredGame = preferredGame;
         this.skillLevel = skillLevel;
         this.preferredRole = preferredRole;
@@ -28,16 +26,18 @@ public class Participant {
         return "Balanced";
     }
 
-    public String getName() { return name; }
-    public String getEmail() { return email; }
     public String getPreferredGame() { return preferredGame; }
     public int getSkillLevel() { return skillLevel; }
     public String getPreferredRole() { return preferredRole; }
     public int getPersonalityScore() { return personalityScore; }
     public String getPersonalityType() { return personalityType; }
-
     public void setPersonalityType(String personalityType) {
         this.personalityType = personalityType;
+    }
+
+    @Override
+    public void displayInfo() {
+        System.out.println("Participant: " + name + " (" + email + ")");
     }
 
     @Override
