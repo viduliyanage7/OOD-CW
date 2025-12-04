@@ -3,39 +3,23 @@ import java.util.*;
 public class TeamBuilder {
 
     public static class Result {
-        public ArrayList<Team> validTeams;
-        public ArrayList<Team> unfinishedTeams;
-        public ArrayList<Participant> unassigned;
-
-        Result(ArrayList<Team> v, ArrayList<Team> u, ArrayList<Participant> rest) {
-            validTeams = v;
-            unfinishedTeams = u;
-            unassigned = rest;
-        }
+        public ArrayList<Team> teams = new ArrayList<>();
+        public ArrayList<Participant> unassigned = new ArrayList<>();
     }
 
-    // ============= ROLE RULE =================
-    private static boolean canAddRole(Team team, Participant p) {
-        return team.getUniqueRoleCount() < 3 ||
-                !team.getMembers().stream()
-                        .map(Participant::getPreferredRole)
-                        .toList().contains(p.getPreferredRole());
-    }
-
-    // ============= MAIN BUILD FUNCTION =================
     public static Result buildTeams(ArrayList<Participant> participants, int teamSize) {
 
-        ArrayList<Team> validTeams = new ArrayList<>();
-        ArrayList<Team> unfinishedTeams = new ArrayList<>();
-        ArrayList<Team> teams = new ArrayList<>();
+        Result result = new Result();
 
-        ArrayList<Participant> unassigned = new ArrayList<>();
+        if (participants == null || participants.isEmpty()) {
+            return result;
+        }
 
+        // ===== SPLIT BY PERSONALITY =====
         List<Participant> leaders = new ArrayList<>();
         List<Participant> thinkers = new ArrayList<>();
         List<Participant> balanced = new ArrayList<>();
 
-        // Classification
         for (Participant p : participants) {
             switch (p.getPersonalityType()) {
                 case "Leader" -> leaders.add(p);
@@ -44,71 +28,117 @@ public class TeamBuilder {
             }
         }
 
-        int totalTeams = Math.min(
-                Math.min(leaders.size(), thinkers.size()),
-                participants.size() / teamSize
-        );
-
-        if (totalTeams == 0) {
-            System.out.println("Not enough leaders/thinkers to form teams.");
-            return new Result(validTeams, unfinishedTeams, participants);
+        // ===== HOW MANY TEAMS? =====
+        int totalTeams = participants.size() / teamSize;
+        if (totalTeams <= 0) {
+            result.unassigned.addAll(participants);
+            return result;
         }
 
-        Collections.shuffle(leaders);
-        Collections.shuffle(thinkers);
-        Collections.shuffle(balanced);
-
-        for (int i = 0; i < totalTeams; i++) teams.add(new Team(i + 1));
-
-        // --- Add Leader ---
+        ArrayList<Team> teams = new ArrayList<>();
         for (int i = 0; i < totalTeams; i++) {
-            Participant p = leaders.remove(0);
-            if (teams.get(i).canAddGame(p.getPreferredGame()) && canAddRole(teams.get(i), p))
-                teams.get(i).addMember(p);
-            else balanced.add(p);
+            teams.add(new Team(i + 1));
         }
 
-        // --- Add Thinker ---
-        for (int i = 0; i < totalTeams; i++) {
-            Participant p = thinkers.remove(0);
-            if (teams.get(i).canAddGame(p.getPreferredGame()) && canAddRole(teams.get(i), p))
-                teams.get(i).addMember(p);
-            else balanced.add(p);
+        // ------------------------------------------------
+        // STEP 1: ADD 1 LEADER TO EACH TEAM (IF POSSIBLE)
+        // ------------------------------------------------
+        for (Team t : teams) {
+            addOneFromPool(t, leaders);
         }
 
-        // Optional 2nd thinker
-        for (int i = 0; i < totalTeams; i++) {
-            if (!thinkers.isEmpty()) {
-                Participant p = thinkers.get(0);
-                if (teams.get(i).canAddGame(p.getPreferredGame()) && canAddRole(teams.get(i), p)) {
-                    teams.get(i).addMember(p);
-                    thinkers.remove(0);
+        // ------------------------------------------------
+        // STEP 2: ADD 1 THINKER TO EACH TEAM (IF POSSIBLE)
+        // ------------------------------------------------
+        for (Team t : teams) {
+            if (t.size() >= teamSize) continue;
+            addOneFromPool(t, thinkers);
+        }
+
+        // ------------------------------------------------
+        // STEP 3: ADD 1 BALANCED TO EACH TEAM (IF POSSIBLE)
+        // ------------------------------------------------
+        for (Team t : teams) {
+            if (t.size() >= teamSize) continue;
+            addOneFromPool(t, balanced);
+        }
+
+        // ------------------------------------------------
+        // STEP 4: FILL THE REST OF SLOTS WITH ANY REMAINING
+        // (leaders + thinkers + balanced combined)
+        // ------------------------------------------------
+        ArrayList<Participant> remaining = new ArrayList<>();
+        remaining.addAll(leaders);
+        remaining.addAll(thinkers);
+        remaining.addAll(balanced);
+
+        boolean added;
+        do {
+            added = false;
+
+            for (Team t : teams) {
+                if (t.size() >= teamSize) continue;
+                Participant chosen = pickAnyValid(t, remaining);
+                if (chosen != null) {
+                    t.addMember(chosen);
+                    remaining.remove(chosen);
+                    added = true;
                 }
             }
-        }
 
-        // Fill with Balanced
-        int idx = 0;
-        for (Participant b : balanced) {
-            Team t = teams.get(idx);
+        } while (added && !remaining.isEmpty() && anyTeamNotFull(teams, teamSize));
 
-            if (t.size() < teamSize &&
-                    t.canAddGame(b.getPreferredGame()) &&
-                    canAddRole(t, b)) {
-                t.addMember(b);
-            } else {
-                unassigned.add(b);
+        // whatever is still left is unassigned
+        result.teams.addAll(teams);
+        result.unassigned.addAll(remaining);
+
+        return result;
+    }
+
+    // =====================================================
+    // HELPERS
+    // =====================================================
+
+    // Try to add exactly ONE participant from the given pool into team
+    private static void addOneFromPool(Team t, List<Participant> pool) {
+        for (int i = 0; i < pool.size(); i++) {
+            Participant p = pool.get(i);
+            if (canAdd(t, p)) {
+                t.addMember(p);
+                pool.remove(i);
+                return;
             }
-
-            idx = (idx + 1) % totalTeams;
         }
+    }
 
-        // ==== FINAL SEPARATION ====
+    // Pick any valid participant from remaining for this team
+    private static Participant pickAnyValid(Team t, List<Participant> pool) {
+        for (Participant p : pool) {
+            if (canAdd(t, p)) {
+                return p;
+            }
+        }
+        return null;
+    }
+
+    private static boolean anyTeamNotFull(List<Team> teams, int teamSize) {
         for (Team t : teams) {
-            if (t.getUniqueRoleCount() >= 3) validTeams.add(t);
-            else unfinishedTeams.add(t);
+            if (t.size() < teamSize) return true;
         }
+        return false;
+    }
 
-        return new Result(validTeams, unfinishedTeams, unassigned);
+    // Respect personality + game cap (max 2 per game)
+    private static boolean canAdd(Team t, Participant p) {
+
+        // game cap: max 2 per game per team (Team already has MAX_PER_GAME = 2)
+        if (!t.canAddGame(p.getPreferredGame())) return false;
+
+        // personality caps from your Team class
+        String type = p.getPersonalityType();
+        if ("Leader".equals(type) && !t.canAddLeader()) return false;
+        if ("Thinker".equals(type) && !t.canAddThinker()) return false;
+
+        return true; // Balanced has no special personality limit
     }
 }

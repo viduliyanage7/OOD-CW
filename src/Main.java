@@ -8,18 +8,27 @@ public class Main {
         ArrayList<Team> formedTeams = new ArrayList<>();
         Scanner scanner = new Scanner(System.in);
 
+        // ===== LOGIN CHECK =====
+        boolean isLoggedIn = Login.login(scanner);
+
         int option;
 
         do {
-            System.out.println("\n" +
-                    "1. Participant Enrollment\n" +
-                    "2. Import Participants data\n" +
-                    "3. Form Teams \n" +
-                    "4. Save Teams\n" +
-                    "0. Exit");
+            // ===== MENU DISPLAY =====
+            System.out.println("\n=== Main Menu ===");
+            System.out.println("1. Participant Enrollment");
 
-            option = getOption(scanner);
+            if (isLoggedIn) {
+                System.out.println("2. Import Participants data");
+                System.out.println("3. Form Teams");
+                System.out.println("4. Save Teams");
+            } else {
+                System.out.println("(Login failed - only option 1 available)");
+            }
 
+            System.out.println("0. Exit");
+
+            option = getOption(scanner, isLoggedIn);
             System.out.println("________________________");
 
             switch (option) {
@@ -64,48 +73,31 @@ public class Main {
                     PersonalityClassifier classifier = new PersonalityClassifier();
                     String personalityType = classifier.classify(totalScore);
 
-
                     System.out.println("Choose a role:");
-                    System.out.println("1. Strategist");
-                    System.out.println("2. Attacker");
-                    System.out.println("3. Defender");
-                    System.out.println("4. Supporter");
-                    System.out.println("5. Coordinator");
-
+                    System.out.println("1. Strategist\n2. Attacker\n3. Defender\n4. Supporter\n5. Coordinator");
                     String roleInput = scanner.nextLine().trim();
-                    if (roleInput.isEmpty()) { System.out.println("Role cannot be empty."); break; }
+                    String preferredRole = switch (roleInput) {
+                        case "1" -> "Strategist";
+                        case "2" -> "Attacker";
+                        case "3" -> "Defender";
+                        case "4" -> "Supporter";
+                        case "5" -> "Coordinator";
+                        default -> { System.out.println("Invalid role."); yield null; }
+                    };
+                    if (preferredRole == null) break;
 
-                    String preferredRole = null;
-
-                    switch (roleInput) {
-                        case "1": preferredRole = "Strategist"; break;
-                        case "2": preferredRole = "Attacker"; break;
-                        case "3": preferredRole = "Defender"; break;
-                        case "4": preferredRole = "Supporter"; break;
-                        case "5": preferredRole = "Coordinator"; break;
-                        default: System.out.println("Invalid role."); break;
-                    }
-
-                    Participant p = new Participant(
-                            name, email, preferredGame, skillLevel,
-                            preferredRole, totalScore
-                    );
+                    Participant p = new Participant(name, email, preferredGame, skillLevel, preferredRole, totalScore);
                     p.setPersonalityType(personalityType);
                     allParticipants.add(p);
+
                     System.out.println("\nParticipant created:");
                     System.out.println(p);
-
                     break;
 
                 case 2:
+                    System.out.print("Enter file path: ");
                     try {
-                        System.out.print("Enter file path: ");
                         String path = scanner.nextLine();
-                        if (path.isEmpty()) {
-                            System.out.println("File path cannot be empty.");
-                            break;
-                        }
-
                         ArrayList<Participant> participants = CSVReader.readCSV(path);
                         allParticipants.addAll(participants);
                         System.out.println("Imported " + participants.size() + " participants.");
@@ -113,6 +105,7 @@ public class Main {
                         System.out.println("Error reading CSV file.");
                     }
                     break;
+
                 case 3:
                     if (allParticipants.isEmpty()) {
                         System.out.println("No participants available to form teams.");
@@ -123,38 +116,39 @@ public class Main {
                     int teamSize = Integer.parseInt(scanner.nextLine());
 
                     TeamBuilder.Result result = TeamBuilder.buildTeams(allParticipants, teamSize);
+                    formedTeams = result.teams;
 
-                    System.out.println("\n==== VALID TEAMS ====");
-                    result.validTeams.forEach(System.out::println);
-
-                    System.out.println("\n==== UNFINISHED TEAMS (failed role/game constraints) ====");
-                    result.unfinishedTeams.forEach(System.out::println);
+                    System.out.println("\n==== FINISHED TEAMS ====");
+                    if (formedTeams.isEmpty()) {
+                        System.out.println("No complete teams could be formed.");
+                    } else {
+                        formedTeams.forEach(System.out::println);
+                    }
 
                     System.out.println("\n==== UNASSIGNED PARTICIPANTS ====");
-                    result.unassigned.forEach(p2 -> System.out.println(" - " + p2));
-
-                    break;   // <-- IMPORTANT
+                    if (result.unassigned.isEmpty()) {
+                        System.out.println("None");
+                    } else {
+                        result.unassigned.forEach(u -> System.out.println(" - " + u));
+                    }
+                    break;
 
                 case 4:
                     if (formedTeams.isEmpty()) {
-                        System.out.println("No teams formed yet. Please form teams first.");
+                        System.out.println("No teams formed yet.");
                         break;
                     }
-
                     try {
                         CSVWriter.saveTeams("teams.csv", formedTeams);
+                        System.out.println("Teams saved.");
                     } catch (Exception e) {
-                        System.out.println("Error saving CSV: " + e.getMessage());
+                        System.out.println("Error saving CSV.");
                     }
                     break;
 
                 case 0:
                     System.out.println("Exiting...");
-
                     break;
-
-                default:
-                    System.out.println("Feature not implemented yet.");
             }
 
         } while (option != 0);
@@ -162,39 +156,32 @@ public class Main {
         scanner.close();
     }
 
-
-    private static int getOption(Scanner scanner) {
+    private static int getOption(Scanner scanner, boolean isLoggedIn) {
         while (true) {
-            System.out.print("Enter your option: ");
-            String input = scanner.nextLine().trim();
-
+            System.out.print("Enter option: ");
             try {
-                int value = Integer.parseInt(input);
-                if (value >= 0 && value <= 7)
-                    return value;
-                else
-                    System.out.println("Please enter a number in the range 0–7.");
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid number.");
+                int value = Integer.parseInt(scanner.nextLine());
+
+                if (isLoggedIn && value >= 0 && value <= 4) return value;
+                if (!isLoggedIn && (value == 0 || value == 1)) return value;
+
+                System.out.println("Invalid option.");
+            } catch (Exception e) {
+                System.out.println("Enter a valid number.");
             }
         }
     }
 
     public static int getRating(Scanner scanner, String question) {
         while (true) {
-            System.out.println("\nRate 1 (Strongly Disagree) to 5 (Strongly Agree)");
+            System.out.println("\nRate 1-5");
             System.out.println(question);
             System.out.print("Your rating: ");
-
-            String input = scanner.nextLine().trim();
-
             try {
-                int rating = Integer.parseInt(input);
-                if (rating >= 1 && rating <= 5)
-                    return rating;
-            } catch (NumberFormatException ignored) {}
-
-            System.out.println("Please enter a number between 1 and 5.");
+                int r = Integer.parseInt(scanner.nextLine());
+                if (r >= 1 && r <= 5) return r;
+            } catch (Exception ignored) {}
+            System.out.println("Enter number 1-5.");
         }
     }
 }
