@@ -3,43 +3,50 @@ import java.util.*;
 
 public class CSVReader {
 
-    public static ArrayList<Participant> readCSV(String filePath) throws Exception {
+    public static ArrayList<Participant> readCSV(String filePath) {
 
         ArrayList<Participant> participants = new ArrayList<>();
-        BufferedReader br = new BufferedReader(new FileReader(filePath));
 
-        String line;
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {   // handles close automatically
 
-        br.readLine();
+            String line = br.readLine(); // header skip
 
-        while ((line = br.readLine()) != null) {
+            while ((line = br.readLine()) != null) {
+                String[] data = line.split(",");
 
-            String[] data = line.split(",");
-
-            System.out.println(Arrays.toString(data));
-
-            try {
-                Participant m = new Participant(
-                        data[1],
-                        data[2],
-                        data[3],
-                        Integer.parseInt(data[4]),
-                        data[5],
-                        Integer.parseInt(data[6])
-                );
-
-                if (data.length > 7) {
-                    m.setPersonalityType(data[7]);
+                if (data.length < 7) {
+                    System.out.println("⚠ Skipped row (not enough columns): " + line);
+                    continue;
                 }
 
-                participants.add(m);
+                try {
+                    Participant p = new Participant(
+                            data[1].trim(),
+                            data[2].trim(),
+                            data[3].trim(),
+                            Integer.parseInt(data[4].trim()),
+                            data[5].trim(),
+                            Integer.parseInt(data[6].trim())
+                    );
 
-            } catch (Exception e) {
-                System.out.println("Invalid row ignored: " + line);
+                    if (data.length > 7 && !data[7].trim().isEmpty())
+                        p.setPersonalityType(data[7].trim());
+
+                    participants.add(p);
+
+                } catch (Exception ex) {
+                    System.out.println("⚠ Skipped invalid row: " + line);
+                }
             }
+
+            System.out.println("✔ Loaded " + participants.size() + " participants.");
+
+        } catch (FileNotFoundException e) {
+            System.out.println("❌ File not found: " + filePath);
+        } catch (IOException e) {
+            System.out.println("❌ Error reading file: " + e.getMessage());
         }
 
-        br.close();
         return participants;
     }
 }
