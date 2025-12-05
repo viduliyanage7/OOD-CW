@@ -6,7 +6,6 @@ public class CSVWriter {
 
     public static boolean saveTeams(String path, List<Team> teams) {
 
-        // Basic validation
         if (path == null || path.trim().isEmpty()) {
             System.out.println("Invalid file path.");
             return false;
@@ -16,7 +15,6 @@ public class CSVWriter {
             return false;
         }
 
-        // Try-with-resources handles closing automatically even if an error occurs
         try (FileWriter fw = new FileWriter(path)) {
 
             fw.write("Team,Name,Email,Game,Role,Skill,Personality\n");
@@ -25,7 +23,6 @@ public class CSVWriter {
                 for (Participant p : t.getMembers()) {
                     fw.write(t.getTeamId() + "," +
                             p.getName() + "," +
-                            p.getEmail() + "," +
                             p.getPreferredGame() + "," +
                             p.getPreferredRole() + "," +
                             p.getSkillLevel() + "," +

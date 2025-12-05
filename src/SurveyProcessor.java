@@ -15,7 +15,6 @@ public class SurveyProcessor implements Callable<Integer> {
     @Override
     public Integer call() {
         try {
-            // Simulate heavy processing time
             Thread.sleep(500);
 
             int score = (q1 + q2 + q3 + q4 + q5) * 4;

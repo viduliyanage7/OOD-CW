@@ -6,7 +6,7 @@ public class Login {
     private static final String PASSWORD = "1234";
 
     public static boolean login(Scanner scanner) {
-        System.out.println("=== Login ===");
+        System.out.println("\nLogin\n");
 
         String user;
         while (true) {

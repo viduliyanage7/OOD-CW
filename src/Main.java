@@ -11,165 +11,190 @@ public class Main {
         List<Team> formedTeams = new ArrayList<>();
         Scanner scanner = new Scanner(System.in);
 
-        boolean isLoggedIn = Login.login(scanner);
+        while (true) {
 
-        int option;
-        do {
-            System.out.println("\n=== MAIN MENU ===");
-            System.out.println("1. Add Participant (Runs in Background)");
+            boolean isLoggedIn = Login.login(scanner); // ask for login
 
-            if (isLoggedIn) {
-                System.out.println("2. Import Participants from CSV");
-                System.out.println("3. Build Teams (Async)");
-                System.out.println("4. Save Teams");
-            } else {
-                System.out.println("(Login failed — Only option 1 available)");
-            }
-            System.out.println("0. Exit");
-
-            option = getOption(scanner, isLoggedIn);
-
-            switch (option) {
-
-                //---------------------------------------------------------
-                // 1. PARTICIPANT INPUT (MULTITHREADED)
-                //---------------------------------------------------------
-                case 1 -> {
-                    addParticipant(scanner, allParticipants);
-                    System.out.println("✔ Processing participant in background...");
+            int option;
+            do {
+                System.out.println("\nMAIN MENU");
+                if (isLoggedIn) {
+                    System.out.println("1. Add Participant (Runs in Background)");
+                    System.out.println("2. Import Participants from CSV");
+                    System.out.println("3. Build Teams");
+                    System.out.println("4. Save Teams");
+                } else {
+                    System.out.println("\n(Login failed — Only option 1 available)");
+                    System.out.println("1. Add Participant (Runs in Background)");
                 }
 
-                //---------------------------------------------------------
-                // 2. CSV IMPORT
-                //---------------------------------------------------------
-                case 2 -> {
-                    System.out.print("Enter CSV path: ");
-                    String path = scanner.nextLine();
+                System.out.println("0. Logout & Return to Login");
 
-                    executor.submit(() -> {
-                        try {
-                            ArrayList<Participant> imported = CSVReader.readCSV(path);
+                System.out.print("Input : ");
+
+                option = getOption(scanner, isLoggedIn);
+
+                switch (option) {
+
+                    // 1. Add Participant (Background Thread)
+                    case 1 -> {
+                        addParticipant(scanner, allParticipants);
+                        System.out.println("Processing participant in background...");
+                    }
+
+                    // 2. CSV Import
+                    case 2 -> {
+                        System.out.print("Enter CSV path: ");
+                        String path = scanner.nextLine();
+
+                        executor.submit(() -> {
+                            try {
+                                ArrayList<Participant> imported = CSVReader.readCSV(path);
+                                synchronized (allParticipants) {
+                                    allParticipants.addAll(imported);
+                                }
+                                System.out.println("Imported " + imported.size() + " participants (async)");
+                            } catch (Exception e) {
+                                System.out.println("Failed to import CSV.");
+                            }
+                        });
+                    }
+
+                    // 3. Build Teams Asynchronously
+                    case 3 -> {
+                        System.out.print("Enter team size: ");
+                        String input = scanner.nextLine();
+
+                        // ----------- VALIDATION ADDED (only additions, nothing removed) -----------
+                        if (input == null || input.isBlank()) {
+                            System.out.println("Team size cannot be empty.");
+                            break;
+                        }
+
+                        // validate numeric
+                        if (!input.matches("\\d+")) {
+                            System.out.println("Invalid input. Please enter a positive number.");
+                            break;
+                        }
+
+                        int size = Integer.parseInt(input);
+
+                        if (size <= 0) {
+                            System.out.println("Team size must be greater than 0.");
+                            break;
+                        }
+
+                        if (allParticipants.isEmpty()) {
+                            System.out.println("No participants available. Add participants first.");
+                            break;
+                        }
+                        // -------------------------------------------------------------------------
+
+                        executor.submit(() -> {
                             synchronized (allParticipants) {
-                                allParticipants.addAll(imported);
+                                // existing check (kept intact)
+                                if (allParticipants.size() < size) {
+                                    System.out.println("Need more participants first.");
+                                    return;
+                                }
+
+                                TeamBuilder.Result result =
+                                        TeamBuilder.buildTeams(new ArrayList<>(allParticipants), size);
+
+                                formedTeams.clear();
+                                formedTeams.addAll(result.teams);
+
+                                System.out.println("\nTeams built asynchronously:");
+                                formedTeams.forEach(System.out::println);
+
+                                if (!result.unassigned.isEmpty()) {
+                                    System.out.println("\nUnassigned Participants:");
+                                    result.unassigned.forEach(p -> System.out.println(" - " + p));
+                                }
                             }
-                            System.out.println("✔ Imported " + imported.size() + " participants (async)");
+                        });
+                    }
+
+
+                    // 4. Save Teams
+                    case 4 -> {
+                        if (formedTeams.isEmpty()) {
+                            System.out.println("No teams to save.");
+                            break;
+                        }
+                        try {
+                            CSVWriter.saveTeams("teams.csv", formedTeams);
+                            System.out.println("Teams saved to teams.csv");
                         } catch (Exception e) {
-                            System.out.println("❌ Failed to import CSV.");
+                            System.out.println("Failed to save.");
                         }
-                    });
-                }
-
-                //---------------------------------------------------------
-                // 3. TEAM BUILDING (ASYNC MODE)
-                //---------------------------------------------------------
-                case 3 -> {
-                    System.out.print("Enter team size: ");
-                    int size = Integer.parseInt(scanner.nextLine());
-
-                    executor.submit(() -> {
-                        synchronized (allParticipants) {
-                            if (allParticipants.size() < size) {
-                                System.out.println("⚠ Need more participants first.");
-                                return;
-                            }
-
-                            TeamBuilder.Result result =
-                                    TeamBuilder.buildTeams(new ArrayList<>(allParticipants), size);
-
-                            formedTeams.clear();
-                            formedTeams.addAll(result.teams);
-
-                            System.out.println("\n🔥 Teams built asynchronously:");
-                            formedTeams.forEach(System.out::println);
-
-                            if (!result.unassigned.isEmpty()) {
-                                System.out.println("\nUnassigned Participants:");
-                                result.unassigned.forEach(p -> System.out.println(" - " + p));
-                            }
-                        }
-                    });
-                }
-
-                //---------------------------------------------------------
-                // 4. SAVE TEAMS
-                //---------------------------------------------------------
-                case 4 -> {
-                    if (formedTeams.isEmpty()) {
-                        System.out.println("⚠ No teams to save.");
                         break;
                     }
-                    try {
-                        CSVWriter.saveTeams("teams.csv", formedTeams);
-                        System.out.println("💾 Teams saved to teams.csv");
-                    } catch (Exception e) {
-                        System.out.println("❌ Failed to save.");
+
+                    case 0 -> {
+                        System.out.println("Logging out... Returning to login.");
                     }
                 }
 
-                //---------------------------------------------------------
-                // 0. EXIT
-                //---------------------------------------------------------
-                case 0 -> {
-                    executor.shutdown();
-                    System.out.println("Exiting... Background tasks finishing.");
-                }
-            }
-
-        } while (option != 0);
-
-        scanner.close();
+            } while (option != 0);
+        }
     }
 
-    // ================== INPUT HANDLER (Runs in Thread) ======================
+
     public static void addParticipant(Scanner scanner, List<Participant> all) {
         try {
-            System.out.print("\nName: ");
-            String name = scanner.nextLine();
+            String name;
+            while (true) {
+                System.out.print("\nName: ");
+                name = scanner.nextLine().trim();
 
-            System.out.print("Email: ");
-            String email = scanner.nextLine();
+                if (!name.isEmpty()) {
+                    break;
+                }
+                System.out.println("Name cannot be empty. Please enter a valid name.");
+            }
 
-            System.out.print("Preferred game: ");
-            String game = scanner.nextLine();
+            String game;
+            while (true) {
+                System.out.print("Preferred game: ");
+                game = scanner.nextLine().trim();
+
+                if (!game.isEmpty()) {
+                    break;
+                }
+                System.out.println("Preferred game cannot be empty. Please enter a valid game.");
+            }
+
 
             int skill = getNumber(scanner, "Skill level (1-10): ", 1, 10);
 
-            // ====== Collect survey answers ======
             int q1 = getRating(scanner, "I enjoy taking the lead...");
             int q2 = getRating(scanner, "I analyze situations...");
             int q3 = getRating(scanner, "I collaborate well...");
             int q4 = getRating(scanner, "I stay calm...");
             int q5 = getRating(scanner, "I adapt quickly...");
 
-            // ====== PROCESS SURVEY IN BACKGROUND THREAD ======
             Future<Integer> surveyFuture = executor.submit(new SurveyProcessor(q1, q2, q3, q4, q5));
+            System.out.println("Processing survey data in background...");
 
-            System.out.println("⏳ Processing survey data in background...");
-
-            // Continue asking input while processing survey
             String role = chooseRole(scanner);
+            int totalScore = surveyFuture.get();
 
-            // Get processed personality score from background thread
-            int totalScore = surveyFuture.get(); // <-- waits only if needed
-
-            // Create participant
-            Participant p = new Participant(name, email, game, skill, role, totalScore);
+            Participant p = new Participant(name, game, skill, role, totalScore);
 
             synchronized (all) {
                 all.add(p);
             }
 
-            System.out.println("✔ Participant added: " + p.getName());
+            System.out.println("Participant added: " + p.getName());
             System.out.println("   Personality Type: " + p.getPersonalityType());
 
         } catch (Exception e) {
-            System.out.println("❌ Failed to register participant.");
+            System.out.println("Failed to register participant.");
             e.printStackTrace();
         }
     }
 
-
-    // ===================== UTIL METHODS =====================
     private static int getOption(Scanner sc, boolean logged) {
         while (true) {
             try {
@@ -206,6 +231,7 @@ public class Main {
                 4. Supporter
                 5. Coordinator
             """);
+            System.out.print("Role: ");
             switch(sc.nextLine()){
                 case "1": return "Strategist";
                 case "2": return "Attacker";

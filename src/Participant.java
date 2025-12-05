@@ -6,25 +6,30 @@ public class Participant extends Person {
     private int personalityScore;
     private String personalityType;
 
-    public Participant(String name, String email, String preferredGame,
+    public Participant(String name, String preferredGame,
                        int skillLevel, String preferredRole, int personalityScore) {
 
-        super(name, email); // Inheritance: calling parent constructor
-
+        super(name);
         this.preferredGame = preferredGame;
         this.skillLevel = skillLevel;
         this.preferredRole = preferredRole;
         this.personalityScore = personalityScore;
-
-        // Auto classify personality
         this.personalityType = classifyPersonality(personalityScore);
     }
 
     private String classifyPersonality(int score) {
-        if (score >= 80) return "Leader";
-        if (score >= 60) return "Thinker";
-        return "Balanced";
+        if (score > 89 && score <= 100) {
+            return "Leader";
+        } else if (score > 69 && score <= 89) {
+            return "Balanced";
+        } else if(score > 49 && score <= 69) {
+            return "Thinker";
+        }else{
+            return "Unknown";
+        }
     }
+
+
 
     public String getPreferredGame() { return preferredGame; }
     public int getSkillLevel() { return skillLevel; }
@@ -37,7 +42,7 @@ public class Participant extends Person {
 
     @Override
     public void displayInfo() {
-        System.out.println("Participant: " + name + " (" + email + ")");
+        System.out.println("Participant: " + name );
     }
 
     @Override

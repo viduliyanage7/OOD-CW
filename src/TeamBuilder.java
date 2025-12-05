@@ -15,7 +15,9 @@ public class TeamBuilder {
         Result result = new Result();
         if (participants == null || participants.isEmpty()) return result;
 
-        // ===================== SPLIT PERSONALITIES (parallel) =====================
+        Collections.shuffle(participants);
+
+        // SPLIT PERSONALITIES (parallel)
         List<Participant> leaders   = Collections.synchronizedList(new ArrayList<>());
         List<Participant> thinkers  = Collections.synchronizedList(new ArrayList<>());
         List<Participant> balanced  = Collections.synchronizedList(new ArrayList<>());
@@ -28,7 +30,7 @@ public class TeamBuilder {
             }
         });
 
-        // ===================== TEAM COUNT =====================
+        // TEAM COUNT
         int totalTeams = participants.size() / teamSize;
         if (totalTeams <= 0) {
             result.unassigned.addAll(participants);
@@ -38,12 +40,12 @@ public class TeamBuilder {
         ArrayList<Team> teams = new ArrayList<>();
         for (int i = 0; i < totalTeams; i++) teams.add(new Team(i + 1));
 
-        // ===================== STEP 1-3 (sequential: unchanged behavior) =====================
+        //  STEP 1-3 (sequential: unchanged behavior)
         for (Team t : teams) addInitial(t, leaders);
         for (Team t : teams) if (t.size() < teamSize) addInitial(t, thinkers);
         for (Team t : teams) if (t.size() < teamSize) addInitial(t, balanced);
 
-        // ===================== STEP 4 (CONCURRENCY FIXED) =====================
+        // STEP 4 (CONCURRENCY FIXED)
         List<Participant> remaining = Collections.synchronizedList(new ArrayList<>());
         remaining.addAll(leaders);
         remaining.addAll(thinkers);
@@ -51,7 +53,7 @@ public class TeamBuilder {
 
         boolean added;
         do {
-            final boolean[] localAdded = {false};   // <— atomic reference
+            final boolean[] localAdded = {false};
 
             teams.parallelStream().forEach(t -> {
                 if (t.size() >= teamSize) return;
@@ -65,7 +67,7 @@ public class TeamBuilder {
 
                 if (pick != null) {
                     synchronized (t) { t.addMember(pick); }
-                    localAdded[0] = true;             // <-- notify progress
+                    localAdded[0] = true;
                 }
             });
 
@@ -78,7 +80,6 @@ public class TeamBuilder {
         return result;
     }
 
-    // ----- unchanged methods -----
 
     private static void addInitial(Team team, List<Participant> pool) {
         if (pool.isEmpty()) return;

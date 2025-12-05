@@ -10,8 +10,6 @@ public class Team {
     private Map<String, Integer> personalityCount;
     private int totalSkill;
 
-    public static final int MAX_PER_GAME = 2;         // Rule 1
-    public static final int MIN_ROLE_DIVERSITY = 3;    // Rule 2
 
     public Team(int teamId) {
         this.teamId = teamId;
@@ -29,7 +27,7 @@ public class Team {
     // ---- RULE CHECKERS ----
 
     public boolean canAddGame(String game) {
-        return gameCount.getOrDefault(game, 0) < MAX_PER_GAME;
+        return gameCount.getOrDefault(game, 0) < 2;
     }
 
     public boolean canAddLeader() {
@@ -38,10 +36,6 @@ public class Team {
 
     public boolean canAddThinker() {
         return personalityCount.getOrDefault("Thinker", 0) < 2;
-    }
-
-    public int getUniqueRoleCount() {
-        return roleCount.size();
     }
 
     // ---- ADD MEMBER ----
@@ -57,15 +51,11 @@ public class Team {
 
     // ---- SKILL ----
 
-    public int getTeamSkillTotal() { return totalSkill; }
-
     public double getTeamAverageSkill() {
         if (members.size() == 0) return 0;
         return (double) totalSkill / members.size();
     }
-    public int countPersonality(String type) {
-        return personalityCount.getOrDefault(type, 0);
-    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder("\nTeam " + teamId + ":\n");
